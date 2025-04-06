@@ -1,4 +1,5 @@
 import pandas as pd
+import os
 
 
 def import_ohlcv_from_csv(
@@ -106,3 +107,65 @@ def export_ohlcv_to_csv(
 
     # Save the DataFrame to a CSV file
     df.to_csv(file_path, header=header, index=False)  # Write to CSV
+
+
+def get_all_csv_files(directory_path: str):
+    """
+    Gather all CSV file paths in a specified directory and its subdirectories.
+
+    Args:
+        directory_path (str): Path to the directory to search for CSV files.
+
+    Returns:
+        list: A list of file paths for all CSV files found in the directory.
+    """
+
+    csv_files = []  # Initialize an empty list to store CSV file paths
+    # Walk through the directory and its subdirectories
+    for root, _, files in os.walk(directory_path):
+        for file in files:
+            # Check if the file has a .csv extension
+            if file.lower().endswith(".csv"):  # Use .lower() to handle case sensitivity
+                csv_files.append(
+                    os.path.join(root, file)
+                )  # Append the full path to the list
+
+    return csv_files  # Return the list of CSV file paths
+
+
+def merge_monthly_and_yearly_csv(
+    monthly_path: str,  # Path to directory of monthly CSV data
+    yearly_path: str,  # Path to directory of yearly CSV data
+    **kwargs,  # Import function specifications for import_ohlcv_from_csv
+):
+    """
+    Merge monthly and yearly separated data into a single DataFrame.
+
+    Args:
+        monthly_path (str): Path to the directory containing monthly CSV files.
+        yearly_path (str): Path to the directory containing yearly CSV files.
+        **kwargs: Additional keyword arguments to pass to the import_ohlcv_from_csv function.
+
+    Returns:
+        pd.DataFrame: A single DataFrame containing merged monthly and yearly data, sorted by TimeStamp.
+    """
+
+    # Gather all CSV files from both monthly and yearly directories
+    csv_files = get_all_csv_files(monthly_path) + get_all_csv_files(yearly_path)
+
+    # Initialize a list to store DataFrames
+    dfs = []
+
+    # Import all CSV files and append to the list
+    for file_path in csv_files:
+        # Import data using the specified import function and additional keyword arguments
+        df = import_ohlcv_from_csv(file_path, **kwargs)
+        dfs.append(df)
+
+    # Concatenate all DataFrames vertically
+    df_merged = pd.concat(dfs, axis=0, ignore_index=True)
+
+    # Sort the merged DataFrame by the TimeStamp column
+    df_merged = df_merged.sort_values(by="TimeStamp", ignore_index=True)
+
+    return df_merged  # Return the merged DataFrame
