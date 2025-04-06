@@ -3,3 +3,11 @@
 
 # ignore all csv data
 DATA/
+
+# all temporary python scripts
+temp_*.py
+
+# Byte-compiled files
+__pycache__/
+*.py[cod]
+*$py.class
