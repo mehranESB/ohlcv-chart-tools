@@ -63,6 +63,7 @@ def export_ohlcv_to_csv(
     header: bool = True,  # Indicate whether to include a header in the CSV
     date_format: str = "%Y-%m-%d",  # Format for the Date column
     time_format: str = "%H:%M:%S",  # Format for the Time column
+    single_datetime: bool = False,  # indicate that just one column for data and time
 ):
     """
     Export OHLCV data from a pandas DataFrame to a CSV file in the conventional format.
@@ -74,6 +75,7 @@ def export_ohlcv_to_csv(
         header (bool): True to include header in the CSV; False otherwise.
         date_format (str): Format to use for the 'Date' column. Default is '%Y-%m-%d'.
         time_format (str): Format to use for the 'Time' column. Default is '%H:%M:%S'.
+        single_datetime (bool): flag for representing single column for datatime.
     """
 
     # Check if the 'TimeStamp' column exists in the DataFrame
@@ -84,14 +86,18 @@ def export_ohlcv_to_csv(
     df = df.copy()
 
     # Create 'Date' and 'Time' columns from 'TimeStamp'
-    df["Date"] = df["TimeStamp"].dt.strftime(date_format)  # Format the Date
-    df["Time"] = df["TimeStamp"].dt.strftime(time_format)  # Format the Time
+    if single_datetime:
+        df["DateTime"] = df["TimeStamp"].dt.strftime(f"{date_format} {time_format}")
+        dt_cols = ["DateTime"]  # just first columns
+    else:
+        df["Date"] = df["TimeStamp"].dt.strftime(date_format)  # Format the Date
+        df["Time"] = df["TimeStamp"].dt.strftime(time_format)  # Format the Time
+        dt_cols = ["Date", "Time"]  # First two columns
 
     # Drop the 'TimeStamp' column as it will be replaced by Date and Time
     df = df.drop(columns=["TimeStamp"])
 
     # Reorder columns: Date, Time, and then remaining OHLCV columns
-    dt_cols = ["Date", "Time"]  # First two columns
     remaining_cols = [
         col for col in df.columns if col not in dt_cols
     ]  # Remaining columns
