@@ -105,3 +105,90 @@ def round_open_time(time, time_frame: str):
         return datetime(year, month, day)
     # Fallback for unsupported timeframes
     raise ValueError(f"Unsupported time_frame: {time_frame}")
+
+
+def get_X_delta(df):
+    """
+    This function calculates the most common difference (mode of differences)
+    between consecutive values in the 'X' column of a DataFrame.
+
+    Parameters:
+        df (pd.DataFrame): Input DataFrame that must contain a column named 'X'.
+
+    Returns:
+        delta_x: The most common difference (mode) between consecutive rows in the 'X' column.
+
+    Raises:
+        IndexError: If the DataFrame does not contain a column named 'X'.
+    """
+
+    # Check if DataFrame has 'X' column
+    if "X" not in df.columns:
+        raise IndexError("The DataFrame must contain a column named 'X'.")
+
+    # Calculate differences in the 'X' column
+    x_diff = df["X"].diff()
+
+    # Check if the differences are empty or all NaN
+    if x_diff.isna().all():
+        raise ValueError(
+            "The 'X' column does not have enough data to compute differences."
+        )
+
+    # Calculate the mode of the differences
+    delta_x = x_diff.mode()
+
+    # Check if mode is empty (edge case: all rows in 'X' column are identical or NaN)
+    if delta_x.empty:
+        raise ValueError(
+            "Could not determine a mode for the differences in the 'X' column."
+        )
+
+    # Return the first mode (in case of multiple modes)
+    return delta_x[0]
+
+
+def get_timeframe(df):
+    """
+    This function calculates the most common time delta between consecutive rows in the 'TimeStamp' column of the dataframe.
+    It uses the difference between timestamps to infer the time frame (e.g., '1m', '5m', '1h', etc.).
+
+    Args:
+        df (pd.DataFrame): The dataframe containing market data with a 'TimeStamp' column.
+
+    Returns:
+        str: The inferred time frame (e.g., '1m', '5m', '1h', etc.)
+
+    Raises:
+        ValueError: If an unsupported time frame is detected or 'TimeStamp' column is missing/invalid.
+    """
+
+    # Check if there are any invalid or NaT timestamps after conversion
+    if df["TimeStamp"].isnull().any():
+        raise ValueError(
+            "There are invalid or missing timestamps in the 'TimeStamp' column."
+        )
+
+    # Calculate the time differences between consecutive timestamps
+    time_diff = df["TimeStamp"].diff()
+
+    # Get the most common time difference (mode)
+    most_common_diff = time_diff.mode()[0]
+
+    # Initialize time_frame to None
+    time_frame = None
+
+    # Compare the most common time difference with the predefined time deltas
+    for key, value in time_delta.items():
+        if value == most_common_diff:
+            time_frame = key
+            break
+
+    # If no match is found in the predefined time deltas, raise an error
+    if time_frame is None:
+        raise ValueError(
+            f"Unsupported time frame detected: {most_common_diff}. Please check the data for inconsistencies."
+        )
+
+    # Return the inferred time frame (e.g., '1m', '5m', '1h', etc.)
+    return time_frame

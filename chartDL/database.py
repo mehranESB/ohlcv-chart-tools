@@ -140,6 +140,9 @@ class Database:
         # compute indicators
         self.compute_indicators()
 
+        # update attached charts
+        self.update_charts()
+
     def export_data(self, dtype: str = "array"):
         """
         Exports the database data from the start up to the current cursor position in the specified format.
@@ -253,3 +256,25 @@ class Database:
                 info.update({name: indicator.mode for name in indicator.column_name()})
 
         return info
+
+    def update_charts(self):
+        """
+        Updates all attached chart objects with the latest data up to the current cursor position.
+
+        This method will export the time and data arrays up to the current data point,
+        and then pass this data to each attached chart for updating.
+
+        Returns:
+            None
+        """
+        # Check if there are any charts attached; if not, exit early
+        if not self.charts:
+            return
+
+        # Retrieve all time and data values up to the current cursor
+        dt, data = self.export_data("array")
+
+        # Loop through each chart in the charts list and update with current data
+        for chart in self.charts:
+            # Call the chart's update method with the latest data
+            chart.update(dt, data)
