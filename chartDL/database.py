@@ -226,3 +226,30 @@ class Database:
 
             # Update the data container with computed indicator values
             self.data[self.cursor, idx_range[0] : idx_range[1] + 1] = data_i
+
+    def cols_info(self):
+        """
+        Returns a dictionary with information about each column in the data.
+        Provides the default mode (e.g., "chart", "log") for standard OHLCV columns
+        and any custom modes defined for indicator columns.
+
+        Returns:
+            dict: A dictionary where keys are column names and values are their modes.
+        """
+        # Base data columns information (OHLCV)
+        info = {
+            "TimeStamp": "time",
+            "Open": "chart",
+            "High": "chart",
+            "Low": "chart",
+            "Close": "chart",
+            "Volume": "log",
+        }
+
+        # Append indicator columns info, if any
+        if self.indicators:
+            for indicator in self.indicators:
+                # Update info dictionary with column names and modes from each indicator
+                info.update({name: indicator.mode for name in indicator.column_name()})
+
+        return info
