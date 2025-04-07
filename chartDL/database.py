@@ -64,6 +64,7 @@ class DataFeeder:
 
 
 class Database:
+
     def __init__(self, time_frame: str = "1m", initial_len: int = 10000):
         """
         Initializes a Database object for storing market data (OHLCV) and additional data
@@ -136,6 +137,9 @@ class Database:
         # Save updated OHLCV data to the current row in the data array
         self.data[self.cursor, :5] = self.current_ohlcv
 
+        # compute indicators
+        self.compute_indicators()
+
     def export_data(self, dtype: str = "array"):
         """
         Exports the database data from the start up to the current cursor position in the specified format.
@@ -165,3 +169,60 @@ class Database:
             return df[["TimeStamp"] + self.data_columns]
         else:
             raise ValueError(f"Unsupported dtype: {dtype}. Choose 'df' or 'array'.")
+
+    def add_indicator(self, indicator):
+        """
+        Adds an indicator to the database's indicators list and modifies the data container
+        to store the indicator's computed values.
+
+        Args:
+            indicator: An indicator object to add, which should have `nColumns` for the number of
+                       data columns it uses and `column_name()` method to provide column names.
+        """
+        # Get the current shape of the data array
+        nRows, nCols = self.data.shape
+
+        # Retrieve new column names from the indicator
+        new_columns = indicator.column_name()
+        num_new_columns = len(new_columns)
+
+        # Define index range in data array for the new indicator's columns
+        # This helps identify where the indicator data is stored in the expanded data array
+        indicator.idx_range = (nCols, nCols + num_new_columns - 1)
+
+        # Expand data container to include columns for indicator data
+        # New columns are initialized to zero
+        new_data = np.zeros((nRows, num_new_columns), dtype=np.float32)
+        self.data = np.hstack((self.data, new_data))
+
+        # Append new column names to the data_columns attribute
+        self.data_columns += new_columns
+
+        # Add the indicator object to the indicators list for future reference
+        self.indicators.append(indicator)
+
+    def compute_indicators(self):
+        """
+        Computes the values of all attached indicators on the data up to the current cursor position.
+        Updates the indicator values in the database's data container.
+
+        Each indicator's computed values are stored in pre-allocated columns within `self.data`,
+        based on the `idx_range` attribute of each indicator.
+        """
+        # Return if no indicators are attached to avoid unnecessary computation
+        if not self.indicators:
+            return
+
+        # Export data up to the current cursor position in "array" format
+        dt, data = self.export_data("array")
+
+        # Compute and store values for each indicator
+        for indicator in self.indicators:
+            # Compute indicator values
+            data_i = indicator.compute(dt, data)
+
+            # Retrieve index range for the indicator's columns in the data array
+            idx_range = indicator.idx_range
+
+            # Update the data container with computed indicator values
+            self.data[self.cursor, idx_range[0] : idx_range[1] + 1] = data_i
