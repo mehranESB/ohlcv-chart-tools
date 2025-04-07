@@ -1,5 +1,7 @@
+import json
 import pandas as pd
 import os
+from pathlib import Path
 
 
 def import_ohlcv_from_csv(
@@ -169,3 +171,144 @@ def merge_monthly_and_yearly_csv(
     df_merged = df_merged.sort_values(by="TimeStamp", ignore_index=True)
 
     return df_merged  # Return the merged DataFrame
+
+
+def export_multi_view_data(path: str, results: list[dict]):
+    """
+    Saves multi-timeframe view data for both original and live synchronized data.
+
+    Args:
+        path (str): Directory where data will be saved.
+        results (list[dict]): List of dictionaries for each timeframe containing:
+            - 'timeframe' (str): Timeframe of the data (e.g., '1h', '4h').
+            - 'origin' (pd.DataFrame): Original DataFrame data for the timeframe.
+            - 'live' (pd.DataFrame): Live-synchronized DataFrame data for the timeframe.
+    """
+
+    # Create directories for 'origin' and 'live' data if they do not exist
+    save_path = Path(path)
+    origin_save_path = save_path / "origin"
+    live_save_path = save_path / "live"
+    origin_save_path.mkdir(parents=True, exist_ok=True)
+    live_save_path.mkdir(parents=True, exist_ok=True)
+
+    # Define date and time formats for export
+    date_format = "%Y-%m-%d"
+    time_format = "%H:%M:%S"
+
+    # Prepare information for saving paths
+    informations = {
+        "timeframes": [res["timeframe"] for res in results],
+        "data_paths": [],  # Store paths for each timeframe's data files
+    }
+
+    # Save each timeframe's data as CSV files in the appropriate directories
+    for res in results:
+        # Save original data to the 'origin' directory
+        origin_file_path = origin_save_path / f"origin-{res['timeframe']}.csv"
+        export_ohlcv_to_csv(
+            origin_file_path,
+            res["origin"],
+            header=True,
+            date_format=date_format,
+            time_format=time_format,
+        )
+
+        # Save live data to the 'live' directory
+        live_file_path = live_save_path / f"live-{res['timeframe']}.csv"
+        export_ohlcv_to_csv(
+            live_file_path,
+            res["live"],
+            header=True,
+            date_format=date_format,
+            time_format=time_format,
+        )
+
+        # Update the information dictionary with paths for JSON export
+        informations["data_paths"].append(
+            {
+                "timeframe": res["timeframe"],
+                "origin_path": str(origin_file_path),
+                "live_path": str(live_file_path),
+            }
+        )
+
+    # Save information as a JSON file in the main data directory
+    info_file_path = save_path / "data_information.json"
+    with open(info_file_path, "w") as json_file:
+        json.dump(informations, json_file, indent=4)
+
+    print(
+        f"Data successfully exported to {save_path}. JSON summary saved at {info_file_path}"
+    )
+
+
+def import_multi_view_data(path: str):
+    """
+    Imports multi-timeframe view data from saved CSV files and JSON summary file.
+
+    Args:
+        path (str): Directory where the multi-timeframe data is saved.
+
+    Returns:
+        list[dict]: List of dictionaries for each timeframe containing:
+            - 'timeframe' (str): Timeframe of the data (e.g., '1h', '4h').
+            - 'origin' (pd.DataFrame): Original DataFrame data for the timeframe.
+            - 'live' (pd.DataFrame): Live-synchronized DataFrame data for the timeframe.
+    """
+
+    # Define paths for save directories and JSON information file
+    save_path = Path(path)
+    origin_save_path = save_path / "origin"
+    live_save_path = save_path / "live"
+    info_file_path = save_path / "data_information.json"
+
+    # Check existence of directories and the JSON information file
+    if not save_path.exists():
+        raise FileNotFoundError(f"The specified path '{path}' does not exist.")
+    if not info_file_path.exists():
+        raise FileNotFoundError(
+            f"JSON information file 'data_information.json' not found in {path}."
+        )
+    if not origin_save_path.exists() or not live_save_path.exists():
+        raise FileNotFoundError(
+            "Expected 'origin' and 'live' folders are missing in the specified path."
+        )
+
+    # Load JSON information
+    with open(info_file_path, "r") as json_file:
+        information = json.load(json_file)
+
+    # List to hold imported data
+    imported_data = []
+
+    # Import data for each timeframe using paths from JSON information
+    for timeframe_info in information["data_paths"]:
+        timeframe = timeframe_info["timeframe"]
+
+        # Load origin data
+        origin_file_path = Path(timeframe_info["origin_path"])
+        if not origin_file_path.exists():
+            raise FileNotFoundError(
+                f"Origin data file '{origin_file_path}' for timeframe '{timeframe}' not found."
+            )
+        origin_data = import_ohlcv_from_csv(
+            origin_file_path, header=True, datetime_format="%Y-%m-%d %H:%M:%S"
+        )
+
+        # Load live data
+        live_file_path = Path(timeframe_info["live_path"])
+        if not live_file_path.exists():
+            raise FileNotFoundError(
+                f"Live data file '{live_file_path}' for timeframe '{timeframe}' not found."
+            )
+        live_data = import_ohlcv_from_csv(
+            live_file_path, header=True, datetime_format="%Y-%m-%d %H:%M:%S"
+        )
+
+        # Append to imported data list
+        imported_data.append(
+            {"timeframe": timeframe, "origin": origin_data, "live": live_data}
+        )
+
+    return imported_data

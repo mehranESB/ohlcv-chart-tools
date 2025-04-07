@@ -278,3 +278,150 @@ class Database:
         for chart in self.charts:
             # Call the chart's update method with the latest data
             chart.update(dt, data)
+
+
+class LiveBackups:
+    """
+    The LiveBackups class stores the state of higher timeframes (heavy databases) at every tick of a lower timeframe (light database).
+    It ensures that every change in the light database triggers an update in the corresponding higher timeframes, maintaining the integrity of the data.
+    """
+
+    def __init__(self, light_database: Database, heavy_databases: list[Database]):
+        """
+        Initializes the LiveBackups object to keep all data changes of the heavy databases at the light database scale.
+
+        Args:
+            light_database (Database): The target database (lower timeframe).
+            heavy_databases (list[Database]): List of databases representing higher timeframes.
+        """
+
+        # Check if heavy database timeframes are equal to or higher than the light database timeframe
+        for i, db in enumerate(heavy_databases):
+            light_delta = time_utils.get_time_delta(light_database.time_frame)
+            heavy_delta = time_utils.get_time_delta(db.time_frame)
+
+            if light_delta > heavy_delta:
+                raise ValueError(
+                    f"The {i}'th heavy database has a lower timeframe ({db.time_frame}) "
+                    f"than the target light database timeframe ({light_database.time_frame})."
+                )
+
+        # Store the light database and heavy databases
+        self.light_database = light_database
+        self.heavy_databases = heavy_databases
+
+        # Initialize storage containers to keep backup data for each heavy database
+        # Number of rows in the light database (lower timeframe data)
+        nRows = light_database.data.shape[0]
+
+        # Storage will hold backup data for each heavy database
+        storage = []
+        for db in heavy_databases:
+            # Initialize each storage container with zero data arrays
+            container = {
+                "data": np.zeros(
+                    (nRows, db.data.shape[1]), dtype=np.float32
+                ),  # Backup data array
+                "cursor": np.zeros(nRows, dtype=np.int32),  # Backup cursor positions
+            }
+            storage.append(container)
+
+        # Store all containers in self.storage
+        self.storage = storage
+
+    def update(self):
+        """
+        Updates the storage of higher timeframes to match the current position of the light database cursor.
+        For each tick of the light database (lower timeframe), the data in the heavy databases (higher timeframes) is updated.
+        """
+        # Get the current cursor position of the light database
+        light_cursor = self.light_database.cursor
+
+        # Loop through each heavy database and update the corresponding storage
+        for db, storage in zip(self.heavy_databases, self.storage):
+            # Get the current cursor position of the heavy database
+            heavy_cursor = db.cursor
+
+            # Update the storage for the heavy database at the position of the light database cursor
+            storage["data"][light_cursor] = db.data[heavy_cursor]
+            storage["cursor"][light_cursor] = heavy_cursor
+
+    def export_data(self, dtype: str = "df"):
+        """
+        Export data from all heavy databases up to the current point in the light database,
+        in the requested format (either 'dict' or 'df').
+
+        Args:
+            dtype (str): Specifies the export format. Options are:
+                - 'dict': Returns data as a list of dictionaries, with each dictionary containing:
+                    - 'timestamps', 'data', 'cursor', and 'data_columns' for each heavy database.
+                - 'df': Returns data as Pandas DataFrames (one per heavy database).
+
+        Returns:
+            If dtype == 'dict', returns a list of dictionaries:
+                [
+                    {
+                        "timestamps": array of timestamps,
+                        "data": array of OHLCV data,
+                        "cursor": array of cursor positions,
+                        "data_columns": list of column names,
+                    },
+                    ...
+                ]
+            If dtype == 'df', returns:
+                - dfs (list): List of Pandas DataFrames with columns ['TimeStamp', 'Cursor', ...] for each heavy database.
+        """
+        # Export data from the light database as an array
+        light_dt, light_data = self.light_database.export_data("array")
+        light_cursor = self.light_database.cursor
+        light_columns = self.light_database.data_columns
+        light_timeframe = self.light_database.time_frame
+
+        # Initialize lists to store data for both light and heavy databases
+        datas = [light_data[: light_cursor + 1]]
+        cursors = [
+            np.arange(light_cursor + 1, dtype=np.int32)
+        ]  # Light database cursor positions
+        data_columns = [light_columns]  # Column names for the light database
+        time_frames = [light_timeframe]  # timeframe of databases
+
+        # Collect data from each heavy database
+        for db, storage in zip(self.heavy_databases, self.storage):
+            # Add data up to the current light cursor from each heavy database
+            datas.append(storage["data"][: light_cursor + 1])
+            cursors.append(storage["cursor"][: light_cursor + 1])
+            data_columns.append(db.data_columns)
+            time_frames.append(db.time_frame)
+
+        if dtype == "dict":
+            # Construct a list of dictionaries for each database, including timestamps, data, cursors, and columns
+            dicts = []
+            for data, cursor, columns, timeframe in zip(
+                datas, cursors, data_columns, time_frames
+            ):
+                dicts.append(
+                    {
+                        "timeframe": timeframe,
+                        "timestamps": light_dt,
+                        "data": data,
+                        "cursor": cursor,
+                        "data_columns": columns,
+                    }
+                )
+            return dicts
+
+        elif dtype == "df":
+            # Convert data to Pandas DataFrames for each heavy database
+            dfs = []
+            for data, cursor, columns in zip(datas, cursors, data_columns):
+                # Create a DataFrame for each heavy database
+                df = pd.DataFrame(data, columns=columns)
+                df["TimeStamp"] = light_dt  # Add the timestamp column
+                df["Cursor"] = cursor  # Add the cursor column
+                # Reorder columns so that TimeStamp and Cursor appear first
+                dfs.append(df[["TimeStamp", "Cursor"] + columns])
+
+            return dfs, time_frames
+
+        else:
+            raise ValueError(f"Unsupported export format: {dtype}. Use 'dict' or 'df'.")
