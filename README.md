@@ -27,12 +27,12 @@ Add technical indicators to datasets, with support for custom indicator developm
 
 **📦 Option 1: Install via pip**
 ```bash
-pip install market-chart-ml
+pip install chartDL
 ```
 **🛠 Option 2: Clone and install manually**
 ```bash
-git clone https://github.com/your-username/market-chart-ml.git
-cd market-chart-ml
+git clone https://github.com/mehranESB/ohlcv-chart-tools.git
+cd ohlcv-chart-tools
 python setup.py install
 ```
 
