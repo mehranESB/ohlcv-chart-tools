@@ -11,3 +11,7 @@ temp_*.py
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Packaging build artifacts
+dist/ 
+*.egg-info/
