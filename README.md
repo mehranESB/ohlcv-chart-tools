@@ -1,4 +1,6 @@
-# 📈 Market Chart Data for ML/DL
+# chartDL
+
+## 📈 Market Chart Data for ML/DL
 
 A toolkit to handle and preprocess financial market chart data for technical analysis, with a focus on preparing input for deep learning and machine learning tasks.
 
