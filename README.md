@@ -29,7 +29,7 @@ Add technical indicators to datasets, with support for custom indicator developm
 
 **📦 Option 1: Install via pip**
 ```bash
-pip install chartDL
+pip install chart-data-dl
 ```
 **🛠 Option 2: Clone and install manually**
 ```bash
