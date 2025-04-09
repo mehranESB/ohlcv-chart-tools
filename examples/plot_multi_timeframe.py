@@ -8,7 +8,6 @@ dataset = MultiDataset(dataset_path, 20)
 
 # pick a sample and convert into dataframe
 data = dataset[3]
-data = [x.to_dataframe() for x in data]
 
 # plot each time frame saperately
 ax2 = visual.plot_bar_chart(

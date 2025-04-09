@@ -19,6 +19,6 @@ print(dataset[100])
 # pick a sample and convert and print on screen
 print(f"multi time frame dataset in folder path: {multi_folder_path}")
 mulit_data = multi_dataset[20]
-for data in mulit_data:
-    print(f"timeframe: {data.timeframe}")
-    print(data.to_dataframe().head())
+for df in mulit_data:
+    print(f"timeframe: {df.attrs['timeframe']}")
+    print(df.head())

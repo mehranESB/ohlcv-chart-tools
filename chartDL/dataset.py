@@ -5,6 +5,39 @@ from datetime import datetime
 import pandas as pd
 from typing import Union
 
+import pandas as pd
+
+
+import pandas as pd
+
+
+def create_sample_df(dt, data, columns, timeframe):
+    """
+    Creates a pandas DataFrame from the given data, adds a TimeStamp column, and stores the timeframe as metadata.
+
+    Parameters:
+    - dt: A list or pandas Series of datetime values (timestamps).
+    - data: A 2D array or list containing the OHLCV data (e.g., Open, High, Low, Close, Volume).
+    - columns: A list of column names (e.g., ["Open", "High", "Low", "Close", "Volume"]).
+    - timeframe: A string representing the timeframe (e.g., "1h", "15min").
+
+    Returns:
+    - A pandas DataFrame with TimeStamp as a column and the given data, and with timeframe stored in the metadata.
+    """
+    # Create DataFrame from data with the given column names
+    df = pd.DataFrame(data.copy(), columns=columns)
+
+    # Add TimeStamp as a column
+    df["TimeStamp"] = dt.copy()
+
+    # Optionally, move TimeStamp to the first position (just for better readability)
+    df = df[["TimeStamp"] + [col for col in df.columns if col != "TimeStamp"]]
+
+    # Attach timeframe as metadata
+    df.attrs["timeframe"] = timeframe
+
+    return df
+
 
 class MultiDataset:
 
@@ -141,11 +174,8 @@ class MultiDataset:
 
             # Append the Data instance for this timeframe
             data_instances.append(
-                Data(
-                    timeframe=timeframe_data["timeframe"],
-                    dt=dt.copy(),  # prevent modifyinhg the source
-                    data=data.copy(),  # prevent modifyinhg the source
-                    columns=timeframe_data["columns"],
+                create_sample_df(
+                    dt, data, timeframe_data["columns"], timeframe_data["timeframe"]
                 )
             )
 
@@ -281,12 +311,7 @@ class SingleDataset:
         data = self.market_data[index - self.seq_len : index]
 
         # Return the data wrapped in a Data class instance
-        return Data(
-            timeframe=self.timeframe,
-            dt=dt.copy(),  # prevent modifyinhg the source
-            data=data.copy(),  # prevent modifyinhg the source
-            columns=self.columns,
-        )
+        return create_sample_df(dt, data, self.columns, self.timeframe)
 
     def set_valid_range(self, from_to: list[str] = None):
         """
@@ -325,148 +350,3 @@ class SingleDataset:
         # Assign the range to the class attributes
         self.index_range = (first_valid_index, end_index)
         self.from_to = from_to
-
-
-class Data:
-
-    def __init__(
-        self,
-        timeframe: str,  # Timeframe of the data (e.g., '1h', '4h')
-        dt: np.ndarray,  # Array of timestamps corresponding to the data sequence
-        data: np.ndarray,  # Sequence data in a NumPy array format
-        columns: list[str],  # Column names for each feature in the data
-        save_in_f32: bool = True,  # Convert data to float32 for memory efficiency if True
-    ):
-        """
-        Data class to encapsulate a single timeframe's sequence data with timestamp and feature info.
-
-        Args:
-            timeframe (str): The timeframe of the data.
-            dt (np.ndarray): Array of timestamps associated with the data sequence.
-            data (np.ndarray): Data sequence as a NumPy array for efficient processing.
-            columns (list[str]): Column names for each feature in the data.
-            save_in_f32 (bool): If True, convert data to float32 to save memory.
-        """
-        self.timeframe = timeframe
-        self.dt = dt
-        self.data = data.astype(np.float32) if save_in_f32 else data
-        self.columns = columns
-
-    def to_dataframe(self):
-        """
-        Converts the data to a pandas DataFrame for ease of analysis or visualization.
-
-        Returns:
-            pd.DataFrame: Data as a pandas DataFrame with 'TimeStamp' as the first column.
-        """
-        # Create a DataFrame for the 'TimeStamp' and the data columns
-        df = pd.DataFrame(data=self.data, columns=self.columns)
-
-        # Add the 'TimeStamp' as the first column
-        df.insert(0, "TimeStamp", self.dt)
-
-        return df
-
-    def __str__(self):
-        """
-        Returns a string representation of the Data object, showing the timeframe and a
-        DataFrame view of the data.
-        """
-        # Convert data to DataFrame for display
-        df = self.to_dataframe()
-
-        # Format the output string with timeframe and DataFrame data
-        return f"timeframe: {self.timeframe}\n{df.head()}"
-
-    def __len__(self):
-        # Return the number of data points (based on the length of dt)
-        return len(self.dt)
-
-    def __getitem__(self, index: list[str]):
-        """
-        Fetch specific columns of data by their names.
-
-        Args:
-            column_names (list[str]): List of column names to retrieve.
-
-        Returns:
-            np.ndarray: A NumPy array containing the data of the requested columns.
-        """
-
-        # Get indices of the requested columns
-        indices = [self.columns.index(col) for col in index]
-
-        # Return the corresponding data
-        return self.data[:, indices]
-
-    def sub_data(self, column_names: list[str], make_copy: bool = True):
-        """
-        Fetch specific columns of data by their names and return a new Data object.
-
-        Args:
-            column_names (list[str]): List of column names to retrieve.
-            make_copy (bool): If True, copies the input data. Otherwise, references the input.
-
-        Returns:
-            Data: A new Data object containing the selected columns.
-        """
-
-        # Get indices of the requested columns
-        indices = [self.columns.index(col) for col in column_names]
-
-        # Extract the corresponding data
-        new_data = self.data[:, indices]
-
-        # Create a new Data object
-        return Data(
-            timeframe=self.timeframe,
-            dt=self.dt,
-            data=new_data,
-            columns=column_names,
-            save_in_f32=False,
-            make_copy=make_copy,
-        )
-
-    def add_extra_data(self, extra_data: dict, inplace: bool = True):
-        """
-        Adds new data columns to the Data object. Can modify the original object or return a new one.
-
-        Args:
-            extra_data (dict): A dictionary where keys are column names and values are numpy arrays
-                               representing the new data to be added to the Data object.
-            inplace (bool): If True, modifies the current Data object in place. If False, returns a new Data object.
-
-        Returns:
-            Data: A new Data object with the added extra data if `inplace=False`. Otherwise, modifies the current object.
-        """
-        # Ensure that all new data arrays have the same number of rows as the existing data
-        for key, value in extra_data.items():
-            if len(value) != self.data.shape[0]:
-                raise ValueError(
-                    f"New data array for column '{key}' must have the same number of rows as the existing data."
-                )
-
-        # Create a new Data object if not modifying in place
-        if not inplace:
-            # Create a copy of the current data
-            new_data = self.data.copy()
-            new_columns = self.columns.copy()
-
-            # Append the new data to the new object
-            extra_data_array = np.column_stack(list(extra_data.values()))
-            new_data = np.hstack((new_data, extra_data_array))
-            new_columns += list(extra_data.keys())
-
-            # Return a new Data object with the extra data
-            return Data(
-                timeframe=self.timeframe,
-                dt=self.dt,
-                data=new_data,
-                columns=new_columns,
-                save_in_f32=True,
-            )
-
-        # Modify the current Data object in place
-        extra_data_array = np.column_stack(list(extra_data.values()))
-        self.data = np.hstack((self.data, extra_data_array))
-        self.columns += list(extra_data.keys())

@@ -13,9 +13,9 @@ class CustomDataset(Dataset):
         multi_time_frame_data = self.dataset[index]
 
         retrive_data = {}
-        for data in multi_time_frame_data:
-            name = f"x_{data.timeframe}"
-            value = data[["High", "Low"]]
+        for df in multi_time_frame_data:
+            name = f"x_{df.attrs['timeframe']}"
+            value = df[["High", "Low"]].to_numpy()
             retrive_data[name] = value
 
         return retrive_data

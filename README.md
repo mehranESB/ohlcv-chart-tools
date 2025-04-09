@@ -75,28 +75,27 @@ This guide demonstrates how to wrap the `MultiDataset` with PyTorch’s `DataLoa
 from torch.utils.data import Dataset, DataLoader
 from chartDL.dataset import MultiDataset
 
-# create example of custom dataset that uses MultiDataset object 
 class CustomDataset(Dataset):
     def __init__(self, dataset: MultiDataset):
-        self.dataset = dataset # store to use it as data source
+        self.dataset = dataset  # store to use it as data source
 
     def __len__(self):
         return len(self.dataset)
 
-    # This example retrieves "High" and "Low" columns from all timeframes in a multi-timeframe dataset. Customize as needed.
     def __getitem__(self, index):
         multi_time_frame_data = self.dataset[index]
 
         retrive_data = {}
-        for data in multi_time_frame_data:
-            name = f"x_{data.timeframe}"
-            value = data[["High", "Low"]]
+        for df in multi_time_frame_data:
+            name = f"x_{df.attrs['timeframe']}"
+            value = df[["High", "Low"]].to_numpy()
             retrive_data[name] = value
 
         return retrive_data
 
+
 # Initialize MultiDataset (use your own path and sequence length)
-multi_dataset = MultiDataset('./DATA/multi_view/EURUSD-15m', seq_len=128)
+multi_dataset = MultiDataset("./DATA/multi_view/EURUSD-1h", seq_len=128)
 
 # Create a DataLoader for batching and shuffling
 data_loader = DataLoader(CustomDataset(multi_dataset), batch_size=64, shuffle=True)
