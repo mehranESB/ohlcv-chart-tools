@@ -1,4 +1,4 @@
-# chartDL
+# chart-data-dl
 
 ## 📈 Market Chart Data for ML/DL
 
