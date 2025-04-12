@@ -4,7 +4,14 @@ import pandas as pd
 from . import time
 
 
-def plot_bar_chart(df: pd.DataFrame, color: str = "blue", title: str = "Candlestick Chart", ax=None, linewidth=1, x_as_axis: bool = False):
+def plot_bar_chart(
+    df: pd.DataFrame,
+    color: str = "blue",
+    title: str = None,
+    ax=None,
+    linewidth=1,
+    x_as_axis: bool = False,
+):
     """
     Plots a candlestick-style bar chart representing market data (Open, High, Low, Close) for each timestamp.
 
@@ -21,7 +28,7 @@ def plot_bar_chart(df: pd.DataFrame, color: str = "blue", title: str = "Candlest
         ax: The axes object with the plot for further customization or saving.
     """
     # Ensure the DataFrame has the required columns
-    required_columns = {'TimeStamp', 'Open', 'High', 'Low', 'Close'}
+    required_columns = {"TimeStamp", "Open", "High", "Low", "Close"}
     if not required_columns.issubset(df.columns):
         raise ValueError(f"The DataFrame must contain the columns: {required_columns}")
 
@@ -40,20 +47,33 @@ def plot_bar_chart(df: pd.DataFrame, color: str = "blue", title: str = "Candlest
         x_index = (row.X - delta / 2) if x_as_axis else row.TimeStamp
 
         # Plot the opening price line (left half of bar)
-        ax.plot([x_index, x_index + delta / 2],
-                [row.Open, row.Open], color=color, linewidth=linewidth,
-                label=timeframe if i == 0 else "")  # Label only once with timeframe
+        ax.plot(
+            [x_index, x_index + delta / 2],
+            [row.Open, row.Open],
+            color=color,
+            linewidth=linewidth,
+            label=timeframe if i == 0 else "",
+        )  # Label only once with timeframe
 
         # Plot the closing price line (right half of bar)
-        ax.plot([x_index + delta / 2, x_index + delta],
-                [row.Close, row.Close], color=color, linewidth=linewidth)
+        ax.plot(
+            [x_index + delta / 2, x_index + delta],
+            [row.Close, row.Close],
+            color=color,
+            linewidth=linewidth,
+        )
 
         # Plot the high-low range as a vertical line through the center of the bar
-        ax.plot([x_index + delta / 2, x_index + delta / 2],
-                [row.High, row.Low], color=color, linewidth=linewidth)
+        ax.plot(
+            [x_index + delta / 2, x_index + delta / 2],
+            [row.High, row.Low],
+            color=color,
+            linewidth=linewidth,
+        )
 
     # Labeling and formatting
-    ax.set_title(title)  # Title for the plot
+    if title is not None:
+        ax.set_title(title)  # Title for the plot
     ax.set_xlabel("Time")  # X-axis label
     ax.set_ylabel("Price")  # Y-axis label
 
@@ -63,13 +83,17 @@ def plot_bar_chart(df: pd.DataFrame, color: str = "blue", title: str = "Candlest
     # Tight layout for better plot appearance
     ax.axis("tight")
 
-    # Show plot (can be omitted if calling this function within a larger plot display context)
-    plt.show()
-
     return ax  # Return the axes object
 
 
-def plot_line_indicator(df: pd.DataFrame, column: str, color: str = "blue", ax=None, linewidth=1, x_as_axis: bool = False):
+def plot_line_indicator(
+    df: pd.DataFrame,
+    column: str,
+    color: str = "blue",
+    ax=None,
+    linewidth=1,
+    x_as_axis: bool = False,
+):
     """
     Plots a line chart for a specified indicator column over time.
 
@@ -98,7 +122,9 @@ def plot_line_indicator(df: pd.DataFrame, column: str, color: str = "blue", ax=N
     delta = time.get_X_delta(df) if x_as_axis else time.get_time_delta(timeframe)
 
     # X and Y data for plotting the indicator
-    x_data = df['X'] if x_as_axis else df["TimeStamp"] + (delta / 2)  # Adjusted to center on bar
+    x_data = (
+        df["X"] if x_as_axis else df["TimeStamp"] + (delta / 2)
+    )  # Adjusted to center on bar
     y_data = df[column]
 
     # Plot the indicator as a line chart
@@ -107,13 +133,17 @@ def plot_line_indicator(df: pd.DataFrame, column: str, color: str = "blue", ax=N
     # Tight layout for neat display
     ax.axis("tight")
 
-    # Show plot (can be omitted if calling this function within a larger plot display context)
-    plt.show()
-
     return ax  # Return the axes object
 
 
-def plot_candlestick_chart(df: pd.DataFrame, color: str = "black", title: str = "Candlestick Chart", ax=None, linewidth=1, x_as_axis: bool = False):
+def plot_candlestick_chart(
+    df: pd.DataFrame,
+    color: str = "black",
+    title: str = None,
+    ax=None,
+    linewidth=1,
+    x_as_axis: bool = False,
+):
     """
     Plots a candlestick chart representing market data (Open, High, Low, Close) for each timestamp.
 
@@ -131,7 +161,7 @@ def plot_candlestick_chart(df: pd.DataFrame, color: str = "black", title: str = 
         ax: The axes object with the plot for further customization or saving.
     """
     # Ensure the DataFrame has the required columns
-    required_columns = {'TimeStamp', 'Open', 'High', 'Low', 'Close'}
+    required_columns = {"TimeStamp", "Open", "High", "Low", "Close"}
     if not required_columns.issubset(df.columns):
         raise ValueError(f"The DataFrame must contain the columns: {required_columns}")
 
@@ -146,10 +176,12 @@ def plot_candlestick_chart(df: pd.DataFrame, color: str = "black", title: str = 
     # Loop through each row to plot candlesticks
     for i, row in enumerate(df.itertuples()):
         # Determine x-coordinate (center of candlestick)
-        x_index = row.X if x_as_axis else (row.TimeStamp + delta/2)
+        x_index = row.X if x_as_axis else (row.TimeStamp + delta / 2)
 
         # Plot the high-low line (wick/shadow)
-        ax.plot([x_index, x_index], [row.Low, row.High], color=color, linewidth=linewidth)
+        ax.plot(
+            [x_index, x_index], [row.Low, row.High], color=color, linewidth=linewidth
+        )
 
         # Determine body color based on Open and Close values
         body_color = "#f2f2f2" if row.Close >= row.Open else color
@@ -164,12 +196,13 @@ def plot_candlestick_chart(df: pd.DataFrame, color: str = "black", title: str = 
             facecolor=body_color,  # Fill color (bullish or bearish)
             edgecolor=color,  # Border color
             linewidth=linewidth,  # Border line width
-            alpha=1.0  # Transparency
+            alpha=1.0,  # Transparency
         )
         ax.add_patch(rect)
 
     # Labeling and formatting
-    ax.set_title(title)
+    if title is not None:
+        ax.set_title(title)  # Title for the plot
     ax.set_xlabel("Time")
     ax.set_ylabel("Price")
 
@@ -178,8 +211,5 @@ def plot_candlestick_chart(df: pd.DataFrame, color: str = "black", title: str = 
 
     # Tight layout for neat display
     ax.axis("tight")
-
-    # Show plot (can be omitted if calling this function within a larger plot display context)
-    plt.show()
 
     return ax
